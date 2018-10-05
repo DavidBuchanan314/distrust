@@ -5,4 +5,3 @@ authors = ["David Buchanan <d@vidbuchanan.co.uk>"]
 
 [dependencies]
 nix = "0.11.0"
-array-init = "0.0.4"

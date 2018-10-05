@@ -2,9 +2,6 @@ use std::fs::File;
 use std::os::unix::io::{RawFd, IntoRawFd};
 use nix::sys::mman::{mmap, ProtFlags, MapFlags};
 
-extern crate array_init;
-//use array_init::array_init;
-
 //use std::io;
 use std::io::prelude::*;
 

@@ -5,3 +5,4 @@ authors = ["David Buchanan <d@vidbuchanan.co.uk>"]
 
 [dependencies]
 nix = "0.11.0"
+sdl2 = "0.31.0"

@@ -1,8 +1,8 @@
 use portio::PortIO;
 use std::time::SystemTime;
 
-const REG_IDX: u16 = 0x70;
-const REG_DATA: u16 = 0x71;
+pub const REG_IDX: u16 = 0x70;
+pub const REG_DATA: u16 = 0x71;
 
 pub struct CMOS {
 	nmi: bool,
@@ -14,8 +14,8 @@ pub struct CMOS {
 impl CMOS {
 	pub fn new() -> Self {
 		let mut regs = [0; 128];
-		regs[0x34] = 0xff;
-		regs[0x35] = 0xfe;
+		//regs[0x34] = 0x80;
+		regs[0x35] = 0x07;
 		Self {
 			nmi: false,
 			idx: 0xd,

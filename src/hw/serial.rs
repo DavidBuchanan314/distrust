@@ -44,6 +44,7 @@ impl PortIO for SerialPort {
 		let offset = port - self.base;
 		match (offset, self.dlab) {
 			(REG_DATA, false) => { self.outfile.write(&[data]).unwrap(); },
+			(REG_LINESTATUS, _) => {loop{};},
 			_ => eprintln!("serial write +{}: 0x{:x}", offset, data)
 		};
 	}

@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::os::unix::io::{RawFd, IntoRawFd};
 use nix::sys::mman::{mmap, ProtFlags, MapFlags};
+use std::thread;
+
 
 //use std::io;
 use std::io::prelude::*;
@@ -17,6 +19,10 @@ mod hw;
 use hw::serial::SerialPort;
 use hw::cmos::CMOS;
 use hw::pit::PIT;
+use hw::vga::VGA;
+use hw::pci::PCI;
+
+mod ui;
 
 #[derive(Debug)]
 struct VM {
@@ -140,15 +146,22 @@ fn main() -> std::io::Result<()> {
 	}
 	
 	// TODO: load code
-	let mut program = Vec::new();
+	let mut bios = Vec::new();
 	let mut f = File::open("seabios/out/bios.bin")?;
-	f.read_to_end(&mut program)?;
+	f.read_to_end(&mut bios)?;
+	
+	let mut vgabios = Vec::new();
+	let mut f = File::open("seabios/out/vgabios.bin")?;
+	f.read_to_end(&mut vgabios)?;
 	
 	unsafe {
-		let mem = vm.mem as *mut [u8; 0x100000];
-		let start = 0x100000 - program.len();
+		let mem = vm.mem as *mut [u8; 0x100000000];
+		let start = 0x100000 - bios.len();
 		for i in start..0x100000 {
-			(*mem)[i] = program[i-start];
+			(*mem)[i] = bios[i-start];
+		}
+		for i in 0..vgabios.len() {
+			(*mem)[0xfebf0000+i] = vgabios[i];
 		}
 	}
 	
@@ -169,6 +182,8 @@ fn main() -> std::io::Result<()> {
 	let mut com1 = SerialPort::new(0x3f8,
 	                               File::open("/dev/stdin")?,
 	                               File::create("/dev/stdout")?);
+	let mut vga = VGA::new();
+	let mut pci = PCI::new();
 	
 	let mut devices: Vec<&mut PortIO> = Vec::new();
 	devices.push(&mut stub);
@@ -181,14 +196,28 @@ fn main() -> std::io::Result<()> {
 	}
 	
 	devices.push(&mut cmos);
-	for i in 0x70..=0x71 {
-		ports[i as usize] = devices.len()-1;
-	}
+	ports[hw::cmos::REG_IDX as usize] = devices.len()-1;
+	ports[hw::cmos::REG_DATA as usize] = devices.len()-1;
 	
 	devices.push(&mut com1);
 	for i in 0x3f8..0x3f8+8 {
 		ports[i as usize] = devices.len()-1;
 	}
+	
+	devices.push(&mut vga);
+	for i in 0x3b0..0x3e0 {
+		ports[i as usize] = devices.len()-1;
+	}
+	
+	devices.push(&mut pci);
+	ports[hw::pci::CONFIG_ADDRESS as usize] = devices.len()-1;
+	ports[hw::pci::CONFIG_DATA as usize] = devices.len()-1;
+	ports[hw::pci::CONFIG_DATA_HIWORD as usize] = devices.len()-1;
+	
+	let vram = vm.mem+0xB8000;
+	let ui_thread = thread::spawn(move || {
+		ui::ui_main(vram);
+	});
 	
 	loop {
 	
@@ -249,6 +278,12 @@ fn main() -> std::io::Result<()> {
 			_ => panic!("Unhandled VM_RUN exit reason: {}", reason)
 		}
 	}
+	
+	unsafe {
+		let mem = (vm.mem+0xB8000) as *mut [u8; 0x1000];
+		println!("{}", String::from_utf8_lossy(&*mem));
+	}
+	
 	
 	Ok(())
 }
